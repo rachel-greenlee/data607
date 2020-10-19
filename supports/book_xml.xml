@@ -1,0 +1,26 @@
+<CATALOG>
+	<Book>
+		<Title>The Lowland</Title>
+		<Author>Jhumpa Lahiri</Author>
+		<Genre>Fiction</Genre>
+		<Story_Location>Calcutta, India</Story_Location>
+		<Goodreads_Rating>3.85</Goodreads_Rating>
+		<Year_Published>2013</Year_Published>
+	</Book>
+	<Book>
+		<Title>An American Marriage</Title>
+		<Author>Tayari Jones</Author>
+		<Genre>Fiction</Genre>
+		<Story_Location>Georgia, USA</Story_Location>
+		<Goodreads_Rating>3.96</Goodreads_Rating>
+		<Year_Published>2018</Year_Published>
+	</Book>
+	<Book>
+		<Title>Leviathan Wakes</Title>
+		<Author>Daniel Abraham, Ty Franck</Author>
+		<Genre>Science Fiction</Genre>
+		<Story_Location>The Milky Way</Story_Location>
+		<Goodreads_Rating>4.25</Goodreads_Rating>
+		<Year_Published>2011</Year_Published>
+	</Book>
+</CATALOG>

@@ -1,0 +1,78 @@
+---
+title: "Data607 - Assign7"
+author: "Rachel Greenlee"
+date: "10/5/2020"
+output:
+  
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+In this assignment I used Notepad to write the data for 3 books in 3 different formats: HTML, XML, and JSON. Next, I load each of these files into R and place in separate data frames. 
+
+## XML Data
+Using the XML and RCurl packages (as xmlParse wouldn't accept my file as XML without RCurl), I access the .xml from my GitHub, parse it, and put it into a data frame.
+
+```{r}
+library(XML)
+library(RCurl)
+library(kableExtra)
+```
+
+```{r}
+xml_URL <- "https://raw.githubusercontent.com/rachel-greenlee/data607_assign7/master/book_xml.xml"
+xml_link <- getURL(xml_URL)
+xml_data <- xmlParse(file = xml_link)
+xml_df <- xmlToDataFrame(nodes = getNodeSet(xml_data, "//Book"))
+kable(xml_df, format = "simple")
+
+```
+
+
+## HTML Data
+Conveniently also from the XML package, there is a readHTMLTable function that allows us to read straight into a dataframe.
+
+```{r, message=FALSE, warning=FALSE, error=FALSE}
+html_URL <- "https://raw.githubusercontent.com/rachel-greenlee/data607_assign7/master/books_html.html"
+html_link <- getURL(html_URL)
+
+html_df <- readHTMLTable(html_link)
+kable(html_df, format = "simple")
+
+```
+
+## JSON Data
+The jsonlite package made quick work of reading my JSON file into a dataframe, and I didn't need to use RCurl this time.
+
+```{r}
+library("jsonlite")
+```
+
+```{r}
+json_df <-fromJSON("https://raw.githubusercontent.com/rachel-greenlee/data607_assign7/master/book_json.json")
+kable(json_df, format = "simple")
+```
+
+## Data Frame Comparisons
+By sight these data frames all seem identical, but when we use the all.equal function we see a list of some of the differences between the three data frames.
+
+```{r}
+all.equal(html_df, xml_df, json_df)
+```
+
+
+
+## Conclusion
+
+Loading these three formats into data frames was not as difficult as I had expected it would be, though I see from some online resources that as the nodes increase, the code needs to increase as well. In my case, even before using kable, each data frame looks identical to the next which is pretty amazing! However, when we dig deeper using the all.equal function there are differences between them that could make further analysis easier/harder depending on the task.

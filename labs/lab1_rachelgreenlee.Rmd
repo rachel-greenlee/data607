@@ -1,0 +1,51 @@
+---
+title: "Lab1"
+author: "rachelgreenlee"
+date: "8/29/2020"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Using Version 1 of the Pittsburg Bridges Data Set
+
+First I read the data from the URL and look at the first few rows.
+
+```{r}
+
+bridgedata <- read.csv(url("https://archive.ics.uci.edu/ml/machine-learning-databases/bridges/bridges.data.version1"), header=FALSE)
+
+head(bridgedata)
+
+```
+
+
+Next I'm going to just select 5 of the variables and rename them, they are originally called IDENTIF (1), ERECTED (4), PURPOSE (5), LENGTH (6), MATERIAL (10). We need to use dplyr package which is in the tidyverse. 
+
+
+
+```{r}
+
+library(tidyverse)
+
+colnames(bridgedata) <- c("ID", "River", "Location", "Erected", "Purpose", "Length", "Lanes", "Clear-G", "T-OR-D", "Materials", "Span", "Rel-L", "Type")
+
+bridgesubset <- subset(bridgedata, select = c("ID", "Erected", "Purpose", "Length", "Materials"))
+
+
+head(bridgesubset)
+```
+
+Now let's look at some summary statistics of this subset of the data.
+
+```{r}
+summary(bridgesubset)
+```
+
+

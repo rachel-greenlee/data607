@@ -1,0 +1,148 @@
+---
+title: "Assign3"
+author: "Rachel Greenlee"
+date: "9/9/2020"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+
+### Problem 1
+> Using the 173 majors listed in fivethirtyeight.com’s College Majors dataset [https://fivethirtyeight.com/features/the-economic-guide-to-picking-a-college-major/], provide code that identifies the majors that contain either "DATA" or "STATISTICS"  
+  
+  
+First, import the CSV provided by FiveThirtyEight on Github.
+
+```{r}
+majors <- read.csv(url("https://raw.githubusercontent.com/fivethirtyeight/data/master/college-majors/majors-list.csv"))
+```
+
+Next, run the code to filter and only display majors that contain Data or Statistics.
+
+```{r}
+
+grep(pattern = 'Data|Statistics', majors$Major, value = TRUE, ignore.case = TRUE)
+
+```
+  
+  
+### Problem 2
+> Write code that transforms the data below:  
+[1] "bell pepper"  "bilberry"     "blackberry"   "blood orange"  
+[5] "blueberry"    "cantaloupe"   "chili pepper" "cloudberry"  
+[9] "elderberry"   "lime"         "lychee"       "mulberry"    
+[13] "olive"        "salal berry"
+
+>Into a format like this:
+c("bell pepper", "bilberry", "blackberry", "blood orange", "blueberry", "cantaloupe", "chili pepper", "cloudberry", "elderberry", "lime", "lychee", "mulberry", "olive", "salal berry")  
+  
+  
+This can be achieved by transforming the original dataframe using the concatenate and paste functions.
+```{r}
+
+original <- data.frame(c("bell pepper", "bilberry", "blackberry", "blood orange", "blueberry", "cantaloupe", "chili pepper", "cloudberry", "elderberry", "lime", "lychee", "mulberry", "olive", "salal berry"))
+
+cat(paste(original), collapse=", ")
+
+```
+  
+  
+### Problem 3
+> Describe, in words, what these expressions will match...  
+  
+  
+First I'll create a dataset for this and problem 4 to test on. Also get stringr library loaded.
+
+```{r}
+testdata <- c("hhh", "iceiceice", "amma", "coco", "riror", "ratextracharactertar","kayak", "mom", "blurb", "church", "bangbang", "greenlee", "banana", "777", "data\1\1", "anna", "2002", "elle")
+
+library(stringr)
+```
+  
+  
+
+> (.)\1\1
+
+Any character followed by the literal string \1\1 since only one backslash
+is used. For example "data/1/1". 
+```{r}
+
+str_view(testdata, '(.)\1\1', match = TRUE)
+
+```
+
+  
+  
+> "(.)(.)\\2\\1"
+
+Two characters repeated once but in the opposite order the second time. For example "amma".
+```{r}
+str_view(testdata, '(.)(.)\\2\\1', match = TRUE)
+```
+  
+  
+
+> (..)\1
+
+Any two character followed by the literal string \1\1 since only one backslash
+is used. For example "data/1/1". 
+```{r}
+str_view(testdata, '(..)\1', match = TRUE)
+```
+  
+  
+
+> "(.).\\1.\\1"
+
+Character 1 then any character at all, then we need to see the exact same Character 1 again, then any character at all, then Character 1 again. Basically positions 1, 3, and 5 must all be the same character, 2 and 4 can be anything. For example, "riror". This can occur at any position within the string.
+```{r}
+str_view(testdata, '(.).\\1.\\1', match = TRUE)
+```
+
+  
+  
+> "(.)(.)(.).*\\3\\2\\1"
+
+Any three characters and then "zero or more" of any other character. Next repeat just those first three characters but backwards. For example, "ratextracharactertar". With rat on the front, anything of any length in the middle, and tar (backwards rat) at the end.
+```{r}
+str_view(testdata, "(.)(.)(.).*\\3\\2\\1", match = TRUE)
+```
+
+  
+  
+
+### Problem 4
+> Construct regular expressions to match words that...  
+  
+  
+> Start and end with the same character.
+
+We can use:
+```{r}
+str_subset(testdata, "^(.)((.*\\1$)|\\1?$)")
+```
+  
+  
+> Contain a repeated pair of letters (e.g. "church" contains "ch" repeated twice.)
+
+We can use:
+```{r}
+str_subset(testdata, "([A-Za-z][A-Za-z]).*\\1")
+```
+  
+  
+> Contain one letter repeated in at least three places (e.g. "eleven" contains three "e"s.)
+
+We can use:
+```{r}
+str_subset(testdata, "([a-z]).*\\1.*\\1")
+```
+
+

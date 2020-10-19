@@ -1,0 +1,258 @@
+---
+title: "Project 2 - Global High-Protein Food Production in Light of Carbon Footprint"
+author: "Rachel Greenlee, Atina Karim, Douglas Barley"
+date: "9/28/2020"
+output:
+  
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+We choose to work with the dataset Rachel posted in last week's discussion forum.
+
+Rachel found a dataset on Kaggle, originally from the Food and Agriculture Organization of the United Nations, that gives food production data for 245 countries. It shows what food items were produced for humans vs animals from 1961-2013. The years in the CSV file are displayed across the columns, making this a very wide dataset!  
+
+https://www.kaggle.com/dorbicycle/world-foodfeed-production
+
+In this assignment we will compare the carbon footprint of high-protein foods. For simplicity's sake we used a separate resource to determine which food items to include. The graph below is taken from the 2011 report called "Meat Eater's Guide to Climate Change + Health" by The Environmental Working Group, a research and advocacy organization that partnered with CleanMetrics Corp, a environmental firm.  
+
+http://static.ewg.org/reports/2011/meateaters/pdf/methodology_ewg_meat_eaters_guide_to_health_and_climate_2011.pdf  
+
+Based on this I will compare legume production (legumes and dry beans) vs the top three animal meats with the highest carbon footprint, lamb (mutton), beef (bovine), and pork(pigmeat).
+
+![](/My Drive/DS/R Programming/DATA607/Assign6(Proj2)/footprint_graph.png)
+
+
+
+\newpage
+## Step 1 - Import data from the provided CSV file and filter by food item
+
+Let's load the libraries we might need.
+
+```{r, warning=FALSE, message=FALSE}
+
+library("dplyr")
+library("tidyr")
+library("ggplot2")
+library("rcartocolor")
+library("kableExtra")
+```
+
+
+We've put the CSV file into my Github repository, we will read it from there, all 21,477 rows and 63 columns.
+
+```{r}
+food_rawdt <- read.csv(url("https://raw.githubusercontent.com/rachel-greenlee/data607_proj2/master/FAO.csv"))
+```
+
+Take a peek at the raw data.
+
+```{r}
+glimpse(food_rawdt)
+```
+
+
+
+Ok in looking at how this dataset is categorizing the crop food types, we will need to subset just the following items as they are called by this dataset:  
+*Legumes* {Pulses, Other and products; Pulses; Beans; Soyabeans}  
+*3_Meats* {Bovine Meat; Mutton & Goat Meat; Pigmeat}
+
+
+Now lets filter this dataset down just to the food items we are interested in that were listed above.
+
+```{r}
+food_dt <- food_rawdt %>% 
+  filter(Item %in% c("Bovine Meat", "Mutton & Goat Meat", "Pigmeat", "Pulses, 
+                     Other and products", "Pulses", "Beans", "Soyabeans"))
+```
+
+
+
+\newpage
+## Step 2 - Tidy the data
+
+First, we need to make this dataset long instead of wide, as currently the years run across columns.
+
+```{r}
+food_dt <- food_dt %>%
+  gather(Year, Amount, Y1961:Y2013)
+
+```
+
+Lets make a new variable that shows if the item is part of the "Pulses" or the "3_Meats" using the mutate function from dplyr and ifelse.
+```{r}
+food_dt <- food_dt %>%
+  mutate(food_dt, Category = ifelse(Item %in% c("Bovine Meat", 
+                                                "Mutton & Goat Meat", "Pigmeat"), 
+                                                "3_Meats", "Pulses"))
+```
+
+
+
+We can also drop some columns we don't need and reorder.
+
+```{r}
+food_dt <- select(food_dt, -c(Area.Code, Item.Code, Element.Code, latitude, 
+                              longitude))
+
+food_dt <- food_dt[, c(8, 3, 4, 2, 6, 5, 7, 1)]
+```
+
+
+We also want the Year variable to be an integer so we can plot it easily later.
+```{r}
+food_dt$Year <- gsub("[^0-9.-]", "", food_dt$Year)
+
+food_dt$Year <- as.numeric(food_dt$Year)
+```
+
+
+## Step 3 - Exploratory analysis
+Okay first lets take a peek at what the datset looks like now.
+
+```{r}
+glimpse(food_dt)
+```
+
+\newpage
+To start, lets combine all of the areas' total tonnes produced and see how the 3_Meats and Pulses production has changed over time for all areas.  
+
+Production of both of these food categories has increase since 1960, with the 3_Meats surpassing Pulses around 1965 and having a steady climb since then.
+```{r, message=FALSE, warning=FALSE}
+
+ggplot(food_dt, aes(x = Year, y = Amount, color=Category)) +
+  stat_summary(fun=sum, geom="line") +
+  stat_summary(fun=sum, geom="point") +
+  labs(title="Production of 3_Meats and Pulses Over Time, All Areas") +
+  ylab('Amount (per 1,000 tonnes)') +
+  xlab('Year') +
+  scale_color_carto_d(name = "Category: ", palette = "Vivid")
+
+
+```
+
+
+\newpage
+We can break this down and look at the types within 3_Meats and Pulses as well.  
+
+This shows that Pigmeat has had the most growth over the years of this dataset.
+
+```{r, warning=FALSE}
+ggplot(food_dt, aes(x = Year, y = Amount, colour=Item)) +
+  stat_summary(fun=sum, geom="line") +
+  stat_summary(fun=sum, geom="point") +
+  labs(title="Production of Items within 3_Meats and Pulses, All Areas") +
+  ylab('Amount (per 1,000 tonnes)') +
+  xlab('Year') +
+  scale_color_carto_d(name = "Item", palette = "Vivid")
+
+```
+
+
+\newpage
+This is a lot of data, let's focus in on some of the largest producers when it comes to Legumes and/or 3_Meats. Presumably, the Areas with the largest production have the most impact on carbon footprint shifts from one food product to another. First we will find the top 10 producers of all year's combined, and Legumes & 3_Meats combines. 
+
+```{r, message=FALSE}
+tot_production <- aggregate(food_dt$Amount, by=list(Area=food_dt$Area), FUN=sum)
+
+tot_production <- top_n((tot_production[order(-tot_production$x),]), 10)
+
+kable(tot_production,  format = "markdown")
+
+```
+
+\newpage
+
+```{r}
+#create a top 10 producers only subset
+topareas_dt <- subset(food_dt, (Area %in% c("China, mainland", "India", 
+                                            "United States of America", "Brazil", 
+                                            "Germany", "Mexico", "France", 
+                                            "Japan", "Italy", "United Kingdom")))
+
+#graph their total production over time
+ggplot(topareas_dt, aes(x = Year, y = Amount, colour=Area)) +
+  stat_summary(fun=sum, geom="line") +
+  stat_summary(fun=sum, geom="point") +
+  labs(title="Combined 3_Meats & Legume Production Over Time, by Area") +
+  ylab('Amount (per 1,000 tonnes)') +
+  xlab('Year') +
+  scale_color_carto_d(name = "Area", palette = "Vivid")
+```
+  
+  
+After we graph it, and see clearly there are 4 Areas with much higher production than the rest. We make a separate dataset for those countries, China, India, USA, and Brazil.
+
+
+```{r}
+top4_dt <- subset(topareas_dt, (Area %in% c("China, mainland", "India", 
+                                            "United States of America", "Brazil")))
+```
+
+\newpage
+Let's look at each of these top 4 countries and their Legume v 3_Meats production over time.We can see that even by sheer tonnes produced China is hugely ahead of the other countries. China's Pulses production has stayed relatively steady over time, but the 3_Meats production has increased greatly over this time span. Closer to 1961 China was barely producing any of these 3_Meats, but as we approach 2013 the 3_Meats production explodes. We also see clearly that India, one of the country's with the highest vegetarian population, has a 3_Meats production that is miniscule compared to their Pulses production.
+
+```{r}
+ggplot(top4_dt, aes(x = Year, y = Amount, fill = Category)) +
+  geom_col() +
+  facet_wrap(~Area) + labs(title = "test") +
+  labs(title="Top 4 Production Areas, Proportion of 3_Meats vs Pulses Production") +
+  ylab('Amount (per 1,000 tonnes)') +
+  xlab('Year') +
+  scale_fill_carto_d(name = "Category: ", palette = "Vivid")
+```
+  
+  
+\newpage  
+
+Finally, let's dig in one more time to take a closer look at China, as it's presumably the country which has the most leverage in food production with regards to lowering the overall carbon footprint. We see over time that Pigmeat grows to take up a huge proportion of these high-protein food Items. 
+```{r}
+#create China-only subset
+china_dt <- subset(top4_dt, (Area == "China, mainland"))
+
+ggplot(china_dt, aes(x = Year, y = Amount, fill = reorder(Item, Amount))) +
+  geom_col() +
+  labs(title="China's Production of Items in 3_Meats & Legumes, Over Time") +
+  ylab('Amount (per 1,000 tonnes)') +
+  xlab('Year') +
+  scale_fill_carto_d(name = "Item: ", palette = "Vivid")
+
+
+```
+  
+  
+Soyabeans are the next largest category, but in investigating that further we see that growth doesn't appear to be for feeding humans ("Food") but rather for feeding animals ("Feed") - quite possibly the Pigs.
+
+
+```{r}
+#create subset of China data with only Soyabeans
+china_soya_dt <- subset(china_dt, (Item == "Soyabeans"))
+
+ggplot(china_soya_dt, aes(x = Year, y = Amount, fill = Element)) +
+  geom_col() +
+  labs(title="China's Soyaproduction, Proportion of Food v Feed, Over Time") +
+  ylab('Amount (per 1,000 tonnes)') +
+  xlab('Year') +
+  scale_fill_carto_d(name = "Element", palette = "Vivid")
+```
+
+
+## Conclusion  
+There is much you could do with this large dataset, and the original poster on Kaggle used it to look more at the Food v Feed aspect of the data. In doing some exploratory analysis and graphing of this dataset, we eventually identified China as a huge producer of these food items we are looking at (Legumes & 3_Meats), and further that the amount of Pigmeat they've been producing has rapidly increased in the 1961-2013 timeframe.  
+
+From a carbon offset footprint and sheer numbers perspective, China could make a major impact in the carbon emissions by altering their food production. This could be done by reigning in their increasing production of Pigmeat and considering shifting to more environmentally-friendly protein sources such as Pulses that are consumes by humans, not necessarily animals. 
+
+If we were doing this analysis in an instance in which policy decisions were being made based on it, we'd definitely need some content experts from the food production industry to weigh in. We are positive there is nuance to this dataset that we're not aware of, and it'd be crucial to have someone more familiar with this industry on the team. For example, did domestic demand for Pigmeat drive the increase in Pigmeat production or are those exports? 
+
+## Citation
+Oppenheim, D. (2017, November). Who eats the food we grow?, Version 7. Retrieved October 2, 2020 from https://www.kaggle.com/dorbicycle/world-foodfeed-production.
