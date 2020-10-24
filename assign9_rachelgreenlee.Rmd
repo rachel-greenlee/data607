@@ -1,0 +1,104 @@
+---
+title: "Assignment 9"
+author: "Rachel Greenlee"
+date: "10/19/2020"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Purpose
+
+For this assignment I'll be learning how to read data in from an API with the New York Times that requires a access key in order to look at data from their bestseller book lists the week of my birthday this past year. 
+
+
+
+## Reading in the Data
+
+First I'll need to install some packages to access, manipulate, and display the data
+
+```{r, message=FALSE, warning=FALSE}
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(stringr)
+library(kableExtra)
+```
+
+Next I've put my API key for NYT in "nytkey" in a code chunk that is hidden, but I reference it below while using the GET function to access the API for NY Times Books.
+
+```{r, echo = FALSE}
+nytkey <- "tqMf5Luw5dXz238wNAUQrDiIhfkUgxZK"
+```
+
+
+```{r}
+#path provided by NY Times 
+path <- "https://api.nytimes.com/svc/books/v3/lists/overview.json"
+
+#setting the date the bestseller list as my birthday, and a just-before the pandemic time
+query <- "?published_date=2020-03-01"
+
+#string it all together
+url <- str_c(path, query, "&api-key=", nytkey, sep = "", collapse = NULL)
+
+nyt_api <- GET(url, verbose())
+```
+
+## View List Types
+
+Transform what we pulled in to a dataframe where we can look at the lists available to us.
+
+```{r}
+#grab the raw import of the API and set is text with proper encoding
+bestseller_lists <- content(nyt_api, "text", encoding='UTF-8')
+
+#convert from JSON
+json_list <- fromJSON(bestseller_lists, flatten = TRUE)
+
+#drill down to the lsits we want to see and display them
+bestseller_lists <- json_list$results$list
+kable(bestseller_lists$list_name, format = 'markdown')
+```
+
+## Accessing the Book Lists
+
+Finally, lets look at two bestseller lists from my birthday week this year. First, I'll pull paperback nonfiction books and a description.
+
+```{r}
+#the 6 as it's the 6th list in the entry above
+paperback_nf <- bestseller_lists[[6, "books"]]
+paperback_nf <- subset(paperback_nf, select = c("title", "author", 
+                                                "description", "weeks_on_list"))
+kable(paperback_nf, format = 'pipe')
+```
+
+
+Next, lets look at the hardcover fiction books from my birthday week and pull slightly different variables.
+
+
+```{r}
+#the 1 as it's the 1st list in the entry above
+hardcover_fic <- bestseller_lists[[1, "books"]]
+hardcover_fic <- subset(hardcover_fic, select = c("title", "author", 
+                                                  "publisher", 
+                                                  "book_review_link"))
+kable(hardcover_fic, format = 'pipe')
+```
+
+
+## Conclusion
+
+While getting the URL correct to access the API took me some time, it was fairly intuitive to move through the file and pick out the best seller lists I wanted to see after that. 
+
+For this week's assignment I had a hard time accessing the NY Times Books API, and found this vingette helpful in getting it to work:
+https://cran.r-project.org/web/packages/jsonlite/vignettes/json-apis.html
