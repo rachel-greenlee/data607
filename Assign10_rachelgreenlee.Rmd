@@ -1,0 +1,154 @@
+---
+title: "Assignment 10"
+author: "Rachel Greenlee"
+date: "10/26/2020"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 3
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Purpose
+
+For this assignment I'll be using the base code from Chapter 2 of Text Minint with R (https://www.tidytextmining.com/sentiment.html) to learn how to do some basic sentiment analysis with provided lexicons.
+
+## Base code
+
+
+
+```{r, message = FALSE, warning = FALSE}
+#gather the needed libraries, lexicons, and Jane Austen books as our corpus
+library(tidytext)
+library(textdata)
+library(dplyr)
+library(stringr)
+library(janeaustenr)
+library(bigreadr)
+get_sentiments("afinn")
+get_sentiments("bing")
+get_sentiments("nrc")
+```
+
+```{r}
+#group by books, set variables for line number and chapter, then list out each word as it's own row
+tidy_books <- austen_books() %>%
+  group_by(book) %>%
+  mutate(linenumber = row_number(),
+         chapter = cumsum(str_detect(text, regex("^chapter [\\divxlc]", 
+                                                 ignore_case = TRUE)))) %>%
+  ungroup() %>%
+  unnest_tokens(word, text)
+```
+
+
+
+```{r}
+# using the NRC lexicon filter for the 'joy' words
+nrc_joy <- get_sentiments("nrc") %>% 
+  filter(sentiment == "joy")
+
+#then join with the words (rows) from Emma that have the joy sentiment
+tidy_books %>%
+  filter(book == "Emma") %>%
+  inner_join(nrc_joy) %>%
+  count(word, sort = TRUE)
+```
+
+```{r}
+library(tidyr)
+
+jane_austen_sentiment <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(book, index = linenumber %/% 80, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+library(ggplot2)
+
+ggplot(jane_austen_sentiment, aes(index, sentiment, fill = book)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~book, ncol = 2, scales = "free_x")
+```
+
+## Extending the base code
+
+Now I will use that code above to apply this method to a new corpus and using a new lexicon.
+
+I found a scifi stories txt file from a writer/programmer I follow, Robin Sloan. He made the file primarily from archives of the Pulp Magazine which ran from 1896 into the 1950s. Sloan used this to create a science fiction autocomplete program, which is quite fun!
+
+dataset: https://www.kaggle.com/jannesklaas/scifi-stories-text-corpus
+
+fun program: https://www.robinsloan.com/notes/writing-with-the-machine/
+
+The file is incredibly large and I was not able to load up to my Github account, and further I wasn’t able to run code on it without taking a subset. I had to use a bigreadr package just to read in the file, and then needed to take just a subset of the first 1,000 lines of text in order for my code to run.
+
+
+```{r, warning= FALSE, message= FALSE}
+#read in the lines
+scifi_raw <- big_fread1('C:/Users/rgreenlee/drive/ds/data607/supports/scifi_text.txt', every_nlines = 100)
+
+#put in a dataframe
+scifi_df <- as.data.frame(t(scifi_raw))
+
+#flip so text is across rows, not columns
+scifi_df <- mutate(scifi_df, V1 = scifi_df$V1)
+
+#subset first 1,000 lines of text
+scifi_sub <- scifi_df %>% slice(1:1000)
+
+# of those first 1000 rows we cook, put each word in it's own row
+scifi_sub <- scifi_sub %>%
+  unnest_tokens(word, V1)
+
+```
+
+I found the Loughran lexicon that had a sentiment for “uncertainty” which I thought was quite appropriate for science fiction writing. I pull that in and grab the words associated with that sentiment and then join with my subset of scifi writing I made above.
+
+```{r, warning= FALSE, message= FALSE}
+# using the loughran lexicon filter for the sentiment "uncertainty"
+loughran_uncertainty <- get_sentiments("loughran") %>% 
+  filter(sentiment == "uncertainty")
+
+#then join with the words (rows) from scifi sample that have the uncertainty sentiment
+scifi_sub %>%
+  inner_join(loughran_uncertainty) %>%
+  count(word, sort = TRUE)
+```
+
+
+The more interesting words that pop out to me from this list are “suddenly”, “believe”, and “appeared” as specific to science fiction worlds, the suspense and perception of the main character.
+
+And for fun, let’s try the “fear” sentiment from the nrc lexicon used above.
+
+
+```{r, warning= FALSE, message= FALSE}
+# using the nrc lexicon filter for the sentiment "fear"
+nrc_fear <- get_sentiments("nrc") %>% 
+  filter(sentiment == "fear")
+
+#then join with the words (rows) from scifi sample that have the uncertainty sentiment
+scifi_sub %>%
+  inner_join(nrc_fear) %>%
+  count(word, sort = TRUE)
+```
+
+Lots of ‘gun’, ‘kill’, and ‘death’ in this subset of scifi stories it appears!
+
+## Conclusion
+
+This is an incredibly interesting way to analyze text, and it was great to see the basic code for such complex analysis. It took me the most time to get the unruly text file loaded and in the format of one word per row, the base code was fairly adaptable after that initial hurdle In my case, I feel the loughran lexicon was a bit more interesting as I associate the sentiment of uncertainty to scifi writing more than fear. It comes down to what sentiment you are expecting/looking for in a project I would guess.
+
+## Citation for base code
+
+Silge, J., &amp; Robinson, D. (2017). Text mining with R: A tidy approach. Sebastopol, CA: O'Reilly.
+
+
+
