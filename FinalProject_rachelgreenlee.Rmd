@@ -1,0 +1,320 @@
+---
+title: "Shareholder Activism for the Climate Crisis"
+author: "Rachel Greenlee"
+date: "11/21/2020"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    toc: yes
+    toc_float: yes
+    toc_collapsed: yes
+    toc_depth: 1
+    theme: journal
+    fig_width: 8
+    fig_height: 5
+  pdf_document:
+    toc: yes
+    toc_depth: '1'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This project is an exploration of how the public and/or shareholders can pressure companies to not turn a blind eye to the affects their operations have on the environment and the climate crisis. Many governments have been slow to impose sweeping regulations on business and industry with regards to harmful emissions, so looking to how the companies themselves can be influenced may be a useful route. 
+
+I'm choosing to focus on shareholder activism, what it's done so far and where else it could be applied. Shareholder activism is when a person or entity attempts to use their rights as a shareholder of a publicly-traded corporation to bring about change within or for the corporation. This can happen by a shareholder putting forth a resolution, and if it meets certain requirements, it will be brought to the full group of shareholders to vote on. There are nonprofits who organize shareholders with the explicit purpose of shareholder activism with regards to the climate crisis, such as [The Ceres Investor Network](https://www.ceres.org/networks/ceres-investor-network), which includes, "over 175 institutional investors, managing more than $29 trillion in assets, advancing leading investment practices, corporate engagement strategies, and key policy and regulatory solutions...Through powerful networks and advocacy, Ceres tackles the world’s biggest sustainability challenges, including climate change, water scarcity and pollution, and inequitable workplaces."
+
+For this project, I imagine I'm working with an organization like The Ceres Investor Network, one that is possible trying to influence corporations even beyond the United States. Maybe they are considering trying to reach out to existing shareholders of these high-emissions companies in order to see if they'll join these shareholder activism movement for the climate crises. What data would an organization with these goals be interested in? What companies (and shareholders) should be targeted? What human beings are driving companies in these harmful directions? 
+
+
+
+# Background and Outline
+
+My motivation in exploring this topic stems from wanting to find a tangible way to hold those responsible for climate change accountable, but more importantly to get everyone cooperating to act now so that in my last decades on this Earth are not full of (more) humanitarian crises and loss of life like we've never seen before. While individual choices certainly matter (recycling, travel choices, food choices), certain corporations have a grossly disproportionate impact on our environment - making them an efficient use of a climate activist's resources to target with the hopes to create change.  
+
+This project explores three datasets.  
+
+##### [CDP Carbon Majors Report, 2017](https://b8f65cb373b1b7b15feb-c70d8ead6ced550b4d987d7c03fcdd1d.ssl.cf3.rackcdn.com/cms/reports/documents/000/002/327/original/Carbon-Majors-Report-2017.pdf?1499691240)
+This 2017 report was [all over the news](https://www.theguardian.com/sustainable-business/2017/jul/10/100-fossil-fuel-companies-investors-responsible-71-global-emissions-cdp-study-climate-change) when it came out with the headline that 71% of the world's greenhouse gas emissions from 1988-2015 (27 years) was from just 100 companies. A single coal company in China was responsible for 14.32% of global greenhouse gas emissions. For this project, I scrape a table from Wikipedia that has the top 20 companies from this list.  
+  
+*CDP is a not-for-profit charity that runs the global disclosure system for investors, companies, cities, states and regions to manage their environmental impacts. Over the past 20 years we have created a system that has resulted in unparalleled engagement on environmental issues worldwide.*
+
+
+##### [Proxy Monitor's Shareholder Resolutions Database](https://www.proxymonitor.org/Results.aspx)
+Proxy Monitor has a database of all shareholder resolutions that reached a vote for the largest 250 public companies in the United States (using Forbes rankings).  For this project, I filtered to look at the 2 public companies in the United States that made the top 20 companies list from the CDP Carbon Majors Report to see if shareholder activism is at work within these companies.  
+  
+  
+*ProxyMonitor.org, a website managed by the Manhattan Institute's legal policy team, sheds light on the influence of outside shareholder proposals on publicly traded corporations.*
+
+
+##### [The World Wide Web Foundation - Company Data Openness by Country](https://webfoundation.org/2016/04/odb-company-dataset/)
+In the wake of [the Panama Paper's revelations](https://www.theguardian.com/news/2016/apr/03/what-you-need-to-know-about-the-panama-papers) in 2016 many governments, under pressure, promised to make publicly available the data they have on companies registered within their country. In the vast majority of cases governments require companies to provide them information about their accounts, shareholders, owners, directors, beneficiaries, etc. Fighting corruption, particularly between hidden government-corporate relationships, begins by having available data about who benefits from a company's profits.  
+
+The World Wide Web Foundation did an analysis across 92 countries to see if governments have been living up to those 2016 promises of making company data available. Taking it a step further, the analysis looks at measures of openness such as if the data is machine readable, available as a bulk download, if a fee is required, etc. Only one country, Australia, met all of their data openness measures.  
+
+I will join this by-country data with the top 20 emitters country data to see if the countries where some of this disproportionately large greenhouse gas emitting companies operate, are countries where that company's shareholder and beneficiary data is openly available to the public.  
+  
+  
+*The World Wide Web Foundation was established in 2009 by web inventor Sir Tim Berners-Lee and Rosemary Leith to advance the open web as a public good and a basic right. We are an independent, international organization fighting for digital equality — a world where everyone can access the web and use it to improve their lives.*
+
+
+
+------------------------------------------------------------------------
+
+
+```{r, message = FALSE}
+library(rvest) #for table scraping
+library(kableExtra) #for nice table displays
+library(rmarkdown) #so I can pageinate my tables
+library(ggplot2) #for charts
+library(rcartocolor) #for chart color themes
+library(gsheet) #to import data from Google Sheet sharing link
+library(dplyr) #for data manipulation and more
+```
+
+
+
+
+# Top 20 Emitters
+
+First I will scrape the table from Wikipedia that has the Top 20 Emitters from the 2017 CDP Carbon Majors Report so we have a dataframe of each company, it's country, and it's percent share of emissions in the 1988-2015 time frame.
+
+```{r}
+#store the url to the page, and then I used the inspect function in the browser to copy the XPath for the table I wanted
+wiki_url <- 'https://en.wikipedia.org/wiki/Top_contributors_to_greenhouse_gas_emissions'
+wiki_xpath <- '//*[@id="mw-content-text"]/div[1]/table[1]'
+
+#read the HTML table into top20 with the nodes from the xpath, and put in a dataframe
+top20 <- wiki_url %>% read_html() %>% html_nodes(xpath = wiki_xpath) %>% 
+  html_table()
+top20 <- top20[[1]]
+
+#switch Percentage to a number variable, not character
+top20$Percentage <- as.numeric(sub("%", "", top20$Percentage))
+```
+
+### Exploratory Analysis {.tabset}
+
+#### Top 20 Table
+Here is the table reproduced as a dataframe. Note the huge percent share China has, at the top of the list with 14.32% of the world's greenhouse gas emissions from 1988-2015. Also, a few companies appear to span across 2 countries.
+
+```{r}
+#display dataframe
+kable(top20, format = 'markdown') 
+```
+
+
+#### % Share by Country
+While this is only the top 20 companies by emission rates, I can see which countries have the largest share among this list regardless of the company. China, Russia, and Saudi Arabia take the top 3 spots, with the United States in 4th place with 3 US-based companies making up 4.44% of global greenhouse gas emissions in the 1988-2015 time frame. Note that the UK contribution is split up, as some of the companies appear to have two country bases.
+
+```{r}
+#create dataframe that shows percentages by country, regardless of company
+top20_country <- top20 %>%
+  group_by(Country) %>%
+  arrange(Country, desc(Percentage)) %>%
+  mutate(country_perc = sum(Percentage))
+
+#drop columns I don't need
+top20_country <- top20_country[ , -which(names(top20_country) %in% c("Rank","Company", "Percentage"))]
+
+#remove duplicate listings of a country as we only want the sum
+top20_country <- top20_country[!duplicated(top20_country$Country),]
+
+#plot the new dataset
+ggplot(top20_country, aes(x = country_perc, y = reorder(Country, country_perc), fill = Country)) +
+  geom_bar(stat="identity", fill="#e58406") +
+  labs(title="% Emissions from Top Companies, Combined by Country") +
+  xlab('% of Worldwide Carbon Emissions Contribution') +
+  ylab('Location of Company')
+
+```
+
+
+
+
+### {-}
+
+
+
+
+
+# Shareholder Resolutions
+
+The Proxy Monitor website has an interactive feature that allows you to filter shareholder proposals by a variety of filters. I set the filters to all years [2006-2020)] a proposal type of [Environmental], and then the US companies on the top 20  list of [Chevron] and [Exxon Mobil]. The third US company on the list, Peabody Energy, is a private corporation and thus not listed on this website.
+
+
+```{r}
+#read CSV file from my Github account into a dataframe
+res <- read.csv(url("https://raw.githubusercontent.com/rachel-greenlee/data607/master/supports/chevron_exxon_proposals.csv"))
+
+#remove columns I don't need
+res <- res[ , -which(names(res) %in% c("Industry","Market.Cap", "Proposal.Type.General", "Proposal.Type.Specific", "Proponent.Type.General"))]
+
+#set the "N/A - Undisclosed" values in the Proponenet column as normal NA values
+res[res$Proponent == "N/A - Undisclosed", "Proponent"] <- NA
+
+#rename some columns
+res <- res %>% rename(
+                      Company = Company.Name,
+                      Proponent_Type = Proponent.Type.Specific,
+                      Vote = Votes.For..)
+
+#all variable classes look good!
+#glimpse(res)
+```
+
+
+
+### Exploratory Analysis {.tabset}
+
+#### Cleaned Dataset
+This table shows a sample of the proposals from shareholders for Chevron and Exxon Mobil with the Environmental tag from 2006-2020. On the website you can click on the table to read the official proposal (and often the company's response). Here we can see who proposed the resolution ("Proponent") and the percent of votes the resoultion eventually recived from shareholders.
+
+```{r}
+#display dataframe
+kable(res[1:10, ], format = "markdown")
+  
+```
+
+#### Environmental Proposals Over  Trime
+Taking the count of environmental proposals to shareholders with Chevron and Exxon combined, we see that over time the number of proposals that have made it to a vote has been inconsistent, with 2016 having the most environmental proposals for these two companies.
+
+```{r}
+ggplot(res, aes(Year, fill = Company)) +
+  geom_histogram(binwidth = 1, color="white") +
+  labs(title="Count of Environmental Shareholder Proposals") +
+  xlab('Year') +
+  ylab('# of Resolutions Proposed') +
+  scale_fill_carto_d(name = "Company: ", palette = "Vivid")
+```
+
+
+
+
+#### Sharedholder Support
+This dataset shows us who the "Proponent" of the proposed resolution is, but ultimately it goes to a vote for all shareholders. While this is an inexact approach, I've plotted below how, in each company, the % of in favor votes has changed over the years available for environmental proposals with a smooth local regression to get a sense of any trends. There appears to be a very slight upwards trend, but further analysis and data would be needed to say more. Only 2 proposals have received over 50% of shareholder votes.
+
+
+```{r}
+
+ggplot(res, aes(x=Year, y=Vote, group=Company, color=Company)) +
+  geom_point(size=3) +
+  facet_wrap(~Company) + labs(title = "test") +
+  labs(title="% Shareholder Votes in Favor of Environmental Proposal") +
+  xlab('Year') +
+  ylab('% of Votes') +
+  scale_color_carto_d(name = "Company: ", palette = "Vivid") +
+  theme(legend.position = "none") +
+  xlim(2005, 2020) +
+  ylim(0, 100) +
+  geom_smooth(method='lm', formula = y~x)
+
+```
+
+
+
+### {-}
+
+
+
+
+
+# Openness of Company Data
+
+The World Wide Web Foundation's dataset was available on a Google Sheet and I used the 'gsheet' package to read it into a dataframe directly from the public share link. I select just a few of their openness measures to look at for this project. This dataset measures whether governments are making available the company data they collect to the public, with the purpose of being more transparent so corrupt arrangements like the Panama Papers incident are less likely.
+
+```{r, message = FALSE}
+#use gsheet package to read Google Sheet in to R dataframe
+company_url <- 'docs.google.com/spreadsheets/d/1u2hUQ-DSypWnszxtZmmkHSW-ekB_mjqC8_alFrbKxHY/edit#gid=1306866456'
+comp_table <- gsheet2text(company_url)
+comp_data <- read.csv(text=comp_table, skip = 1)
+
+#drop columns I don't need
+comp_data <- comp_data[ , -which(names(comp_data) %in% c("ODB.edition","ISO2", "ISO3", "Variable", "Dataset", "X", "fLicense", "gUpdated", "hSustainable", "iDiscoverable", "jLinked"))]
+
+#using dplyr to remove last two rows that were total rows
+comp_data <- slice(comp_data, 1:(n()-2))
+
+#rename columns
+comp_data <- comp_data %>% rename(
+                            fullyopen = isOpen,
+                            gov_has = aExists,
+                            public_avail = bAvailable,
+                            machine_readable = cMachineReadable,
+                            bulk_download = dBulk,
+                            no_fee = eFree)
+
+#rename country for better join later
+comp_data[comp_data == "United States of America"] <- "United States"
+comp_data[comp_data == "UAE"] <- "United Arab Emirates"
+comp_data[comp_data == "Russian Federation"] <- "Russia"
+
+```
+
+
+
+### Exploratory Analysis {.tabset}
+
+#### Cleaned Dataset
+Here is the first few rows of the cleaned dataset. Australia was the only country of the 92 they reviewed that met all of their openness criteria. This is only a subset of the criteria, the variable I kept here show if the data was publicly available, machine readable, available as a bulk download, and if there was a fee required.  
+
+```{r}
+#display dataframe
+kable(comp_data[1:10, ], format = "markdown")
+```
+
+
+#### Is Company Data Open in These Countries?
+Combining the top 20 emitters dataset that was grouped by country with The World Wide Web Foundation's dataset here on data openness, we can see if the countries who are housing the world's top emitters are countries that generally make the company data they have available to the public.  
+
+A few things to note. The two rows that contain two countries cannot accurately be split apart for my purposes, so those will not have matches to the The World Wide Web Foundation's dataset. Beyond that, 11 of the countries 16 on the top20_country list had data in the company data openness dataset.
+
+```{r}
+#join company data openness dataset with top20 emitter country dataset
+open_emitters <- left_join(top20_country, comp_data, by = "Country")
+
+#display dataframe
+kable(open_emitters, format = "markdown", sort(open_emitters$country_perc))
+```
+
+
+#### Open Data & High Emissions
+
+Plotting a country's top company emissions by the data openness score we see that most of these countries that have high-emitting companies based within their borders rank very low on company data openness score. Poland, Mexico, and the United Kingdom all appear to have scores that are at least higher than 15 where most of the countries are concentrated.
+
+
+
+```{r}
+#dataset with just those who had data openness scores
+open_emit_no_na <- open_emitters[complete.cases(open_emitters), ]
+
+ggplot(open_emit_no_na, aes(x = CalculatedScore, y = country_perc, color = Country)) +
+  geom_point(stat="identity", size = 3) +
+  labs(title="% Emissions from Top Companies, Combined by Country, compared to Company Data Openness in Country") +
+  xlab('Data Openness Score (out of 100)') +
+  ylab('% Emissions from Top Companies, Combined by Country') +
+  scale_color_carto_d(name = "Company: ", palette = "Vivid")
+```
+
+
+### {-}
+
+### {-}
+
+
+
+# Conclusion & Recommendations
+
+In this exploratory data project I was able to:  
+
+**1) identify what countries house some of the biggest greenhouse gas emitters in the world,**  
+**2) for the US see the efforts of shareholder activism in two companies generally receive less than 50% of the shareholder vote, and**  
+**3) see that most governments, including those which allow huge greenhouse gas emitters to operate in their borders, are not providing open data about those companies.**  
+
+One obvious early conclusion is that a shareholder activist organization might focus on China regarding more openness with company data so that it can be scrutinized for any corrupt activities between policy-makers and the high-emitting countries on this top 20 list. Further, if shareholders and beneficiaries of these companies in China were public, a shareholder activist organization could engage with these people with the hopes of getting China's high-emitting companies to reduce their global share of emissions.
+
+I would recommend further work bring in content experts on government open data policies, emissions, and shareholder activism. Further analysis at the effectiveness of shareholder activism would be telling and inform those working in this realm of how to use their resources for the most change. Finally, if open data becomes available in some of these countries that are housing high-emitting companies and not putting environmental policies in place - an analysis using Neo4j, [as was done with the Panama Papers](https://neo4j.com/blog/analyzing-panama-papers-neo4j/?ref=sarum), could be very telling of any potentially corrupt relationships between government policy makers and company profits.
