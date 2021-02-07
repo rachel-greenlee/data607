@@ -3,13 +3,13 @@ title: "Assignment 9"
 author: "Rachel Greenlee"
 date: "10/19/2020"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
     toc: true
     toc_float: true
     toc_collapsed: true
     toc_depth: 3
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
